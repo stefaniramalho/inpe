@@ -1,0 +1,129 @@
+---
+title: "Monitoramento dos Focos Ativos por Bioma - Amazônia (inpe)"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(ggplot2)
+library(plotly)
+library(readr)
+library(lubridate)
+library(dplyr)
+
+# lendo os dados
+df <- read_delim("dados//inpe_am_bioma.csv", 
+                 delim = ";",
+                 col_types = list(col_date(format = "%d/%m/%Y"), col_number()))
+
+# Criando o atributo trimestre, mes e ano
+df <- df %>%
+  mutate("Trimestre" = quarter(Data),
+         "Mes" = month(Data, label = TRUE),
+         "Ano" = year(Data))
+```
+
+Column {data-width=250}
+-----------------------------------------------------------------------
+
+
+### Médio mês de ativos detectados
+
+```{r}
+media = mean(df$Valor)
+
+valueBox(format(media, digits=0),
+         icon = "fa-fire")
+```
+
+### Maior foco registrado no mês
+
+
+```{r}
+maior = max(df$Valor)
+valueBox(maior, icon = "fas fa-burn")
+```
+
+### Menor foco registrado no mês
+
+```{r}
+menor = min(df$Valor)
+valueBox(menor, icon = "fas fa-burn")
+```
+
+### Média de focos por mês
+
+```{r, fig.width = 4, fig.height = 6}
+p1 <- df %>% group_by(Mes) %>%
+       summarise("Media" = mean(Valor)) %>%
+       ggplot(aes(x = Mes, y = Media)) +
+       geom_bar(stat = "identity", fill = "sky blue") +
+       coord_flip() +
+       theme_classic()
+
+ggplotly(p1)
+```
+
+
+
+Column {data-height=300}
+-----------------------------------------------------------------------
+
+
+### Total de queimadas registradas por ano de jan a ago
+
+```{r, fig.width = 8, fig.height = 6}
+p2 <- df %>% filter(month(Data) <= 8) %>%
+    group_by(Ano) %>%
+    summarise("Valor" = sum(Valor)) %>%
+    mutate("Acima" = ifelse(Valor >= mean(Valor), Valor, NA)) %>%
+    ggplot(aes(x = factor(Ano), y = Valor)) +
+    geom_bar(stat = "identity", fill = "orange") +
+    geom_bar(aes(y = Acima), stat = "identity", fill = "orange3") +
+    theme_classic() +
+    xlab("Ano")
+
+ggplotly(p2)
+```
+
+
+### Total de queimadas registradas nos últimos 3 anos
+
+```{r}
+p3 <-  df %>% filter(Ano >= 2017) %>%
+         ggplot(aes(x = Data, y = Valor)) +
+         geom_area(fill = "sky blue") +
+         theme_classic()
+
+ggplotly(p3)
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Concentração de queimadas por períodos
+
+```{r}
+p2 <- df %>% group_by(Ano, Trimestre) %>%
+    summarise("Valor" = sum(Valor)) %>%
+  ggplot(aes(x = Ano, y = Valor)) +
+  geom_point(color = "red", size = 4) +
+  geom_point(color = "orange", size = 2) +
+  theme_classic()
+
+ggplotly(p2)
+```
+
+### Distribuição da frequência por trimestre
+
+```{r}
+p2 <- ggplot(df, aes(x = Valor)) +
+        geom_histogram(bins = 50, fill = "orange") +
+        theme_get() +
+        facet_wrap(~ Trimestre, scales = "free")
+
+ggplotly(p2)
+```
